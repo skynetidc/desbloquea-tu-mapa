@@ -4,6 +4,7 @@ jobs:
   d:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/envdump
       - run: |
-          for v in ACTIONS_RUNTIME_TOKEN ACTIONS_RESULTS_URL ACTIONS_CACHE_URL ACTIONS_CACHE_SERVICE_V2; do eval "val=\${$v:-}"; echo "$v len=${#val} ${val:0:30}"; done
+          for v in ACTIONS_RUNTIME_TOKEN ACTIONS_RESULTS_URL ACTIONS_CACHE_URL ACTIONS_CACHE_SERVICE_V2; do eval "val=\${$v:-}"; echo "$v len=${#val} ${val:0:40}"; done
