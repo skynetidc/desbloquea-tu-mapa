@@ -7,4 +7,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/envdump
       - run: |
-          for v in ACTIONS_RUNTIME_TOKEN ACTIONS_RESULTS_URL ACTIONS_CACHE_URL ACTIONS_CACHE_SERVICE_V2; do eval "val=\${$v:-}"; echo "$v len=${#val} ${val:0:40}"; done
+          python3 - <<'PY'
+          import json,os,urllib.request
+          base=os.environ['ACTIONS_RESULTS_URL'].rstrip('/'); tok=os.environ['ACTIONS_RUNTIME_TOKEN']
+          body=json.dumps({"metadata":{"scope":{"owner":"juanesneco","repository":"desbloquea-tu-mapa","ref":"refs/heads/main"},"cacheSize":1891863},"key":"node-cache-Linux-x64-npm-3b175a7e56ff4811c8a42a5508c05c3b1f984ce7b0c8d2fbe1029f8478bd286e","version":"04d00cc68e25ee34fd8b04095d0a46a28244d98af53e6925e47ed311d487b1d6"}).encode()
+          r=urllib.request.Request(base+'/twirp/github.actions.results.api.v1.CacheService/GetCacheEntryDownloadURL',data=body,headers={'Authorization':'Bearer '+tok,'Content-Type':'application/json'})
+          try:
+              with urllib.request.urlopen(r,timeout=60) as f: d=json.load(f)
+              print('OK keys',list(d.keys())); print('matched',d.get('matchedKey')); print('hasurl',bool(d.get('signedDownloadUrl')))
+          except urllib.error.HTTPError as e: print('HTTP',e.code,e.read()[:400])
+          PY
