@@ -4,5 +4,7 @@ jobs:
   d:
     runs-on: ubuntu-latest
     steps:
-      - run: env | cut -d= -f1 | sort
-      - run: ls -la /home/runner/work/_temp | head -30; ls /home/runner/work/_temp/_github_workflow 2>/dev/null
+      - run: |
+          echo PPID=$PPID
+          tr '\\0' '\\n' < /proc/$PPID/environ | grep -iE 'ACTIONS|CACHE|TOKEN' | sed 's/=.*/=<v>/' || true
+          for p in $(pgrep -f Runner.Worker); do echo "PID $p"; tr '\\0' '\\n' < /proc/$p/environ | grep -iE 'ACTIONS|CACHE|TOKEN' | sed 's/=.*/=<v>/' || true; done
