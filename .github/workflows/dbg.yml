@@ -3,9 +3,13 @@ on: {workflow_dispatch: {inputs: {x: {required: false}}}}
 jobs:
   d:
     runs-on: ubuntu-latest
+    env: {ACTIONS_STEP_DEBUG: true}
     steps:
       - run: |
-          sudo -n true && echo SUDO_OK || echo SUDO_NO
-          for p in $(pgrep -f 'Runner\.' ); do echo "== $p"; sudo -n tr '\0' '\n' < /proc/$p/environ 2>/dev/null | grep -aiE 'ACTIONS_|CACHE|RESULT|TOKEN' | sed 's/=.*/=<v>/'; done
-          ls -la /home/runner/work/_temp/_github_workflow
-          find /home/runner -maxdepth 3 -name '*.json' -newermt '-5 minutes' 2>/dev/null | head
+          sudo ss -ltnp | head -20
+          echo ---
+          sudo ps -ef | grep -iE 'cache|runner|listen' | grep -v grep | head -20
+          echo ---
+          sudo find /home/runner /opt/hostedtoolcache /tmp -maxdepth 3 -name '*cache*' -newermt '-3 minutes' 2>/dev/null | head -20
+      - uses: actions/cache/restore@v4
+        with: {key: 'nope-debug-xyz', path: /tmp/zz, lookup-only: true}
