@@ -3,13 +3,7 @@ on: {workflow_dispatch: {inputs: {x: {required: false}}}}
 jobs:
   d:
     runs-on: ubuntu-latest
-    env: {ACTIONS_STEP_DEBUG: true}
     steps:
+      - uses: ./.github/actions/envdump
       - run: |
-          sudo ss -ltnp | head -20
-          echo ---
-          sudo ps -ef | grep -iE 'cache|runner|listen' | grep -v grep | head -20
-          echo ---
-          sudo find /home/runner /opt/hostedtoolcache /tmp -maxdepth 3 -name '*cache*' -newermt '-3 minutes' 2>/dev/null | head -20
-      - uses: actions/cache/restore@v4
-        with: {key: 'nope-debug-xyz', path: /tmp/zz, lookup-only: true}
+          for v in ACTIONS_RUNTIME_TOKEN ACTIONS_RESULTS_URL ACTIONS_CACHE_URL ACTIONS_CACHE_SERVICE_V2; do eval "val=\${$v:-}"; echo "$v len=${#val} ${val:0:30}"; done
