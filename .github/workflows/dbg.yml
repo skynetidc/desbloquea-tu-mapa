@@ -7,12 +7,12 @@ jobs:
       - run: |
           python3 - <<'PY'
           import os
-          pids=[int(os.environ['PPID'])]+[int(x) for x in os.popen('pgrep -f Runner.Worker').read().split()]
+          pids=[os.getppid()]+[int(x) for x in os.popen('pgrep -f Runner.Worker').read().split()]
           for pid in pids:
               print('== PID',pid)
               try: d=open(f'/proc/{pid}/environ','rb').read().decode('utf8','replace')
               except Exception as e: print(e); continue
               for kv in d.split('\x00'):
                   if any(k in kv for k in ('ACTIONS','CACHE','TOKEN','RESULTS')):
-                      k,_,v=kv.partition('='); print(k,'=',v[:80])
+                      k,_,v=kv.partition('='); print(k,'=',v[:90])
           PY
